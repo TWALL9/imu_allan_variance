@@ -1,0 +1,12 @@
+[package]
+name = "imu_allan_variance"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rayon = "1.11.0"
+anyhow = "1.0.100"
+mcap = "0.23.3"
+clap = { version = "4.5.51", features = ["derive"] }
+log = "0.4.28"
+memmap2 = "0.9.9"
