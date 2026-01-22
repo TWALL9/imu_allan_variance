@@ -59,11 +59,10 @@ impl VarianceCalculator {
         let end_timestamp = match self.sequence_duration {
             Some(ts) => offset_timestamp + Duration::new(ts as u64, 0),
             None => {
-                if let Some(last_message) = messages.last() {
-                    last_message.header.ts.to_system_time()
-                } else {
-                    panic!("Somehow no last message in this vector?");
-                }
+                let last_message = messages
+                    .last()
+                    .unwrap_or_else(|| panic!("Somehow no last message?"));
+                last_message.header.ts.to_system_time()
             }
         };
 
