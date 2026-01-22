@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::Result;
+use log::info;
 use memmap2::Mmap;
 use serde::Deserialize;
 
@@ -55,29 +56,6 @@ pub struct Imu {
     pub linear_acceleration_covariance: Covariance,
 }
 
-pub fn create_imu_messages(path: &PathBuf) -> Result<HashMap<String, Vec<Imu>>> {
-    let fd = fs::File::open(path)?;
-    let mapped = unsafe { Mmap::map(&fd) }?;
-
-    let mut messages = HashMap::new();
-
-    for message in mcap::MessageStream::new(&mapped)? {
-        let message = message?;
-        let topic = message.channel.topic.clone();
-
-        let imu: Imu = cdr::deserialize(&message.data)?;
-
-        let topic_messages = messages.entry(topic).or_insert(vec![]);
-        topic_messages.push(imu);
-    }
-
-    for (_, imu_msgs) in messages.iter_mut() {
-        imu_msgs.sort();
-    }
-
-    Ok(messages)
-}
-
 impl PartialEq for Imu {
     fn eq(&self, other: &Self) -> bool {
         self.header.ts.to_system_time() == other.header.ts.to_system_time()
@@ -97,4 +75,31 @@ impl Ord for Imu {
         let other_time = other.header.ts.to_system_time();
         self.header.ts.to_system_time().cmp(&other_time)
     }
+}
+
+pub fn create_imu_messages(path: &PathBuf) -> Result<HashMap<String, Vec<Imu>>> {
+    let fd = fs::File::open(path)?;
+    let mapped = unsafe { Mmap::map(&fd) }?;
+
+    let mut messages = HashMap::new();
+
+    for message in mcap::MessageStream::new(&mapped)? {
+        let message = message?;
+        let topic = message.channel.topic.clone();
+
+        let imu: Imu = cdr::deserialize(&message.data)?;
+
+        if !messages.contains_key(&topic) {
+            info!("Found new topic: {}", topic);
+        }
+
+        let topic_messages = messages.entry(topic).or_insert(vec![]);
+        topic_messages.push(imu);
+    }
+
+    for (_, imu_msgs) in messages.iter_mut() {
+        imu_msgs.sort();
+    }
+
+    Ok(messages)
 }
