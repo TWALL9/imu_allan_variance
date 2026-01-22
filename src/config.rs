@@ -7,14 +7,19 @@ fn default_imu_rate() -> f64 {
     100.0
 }
 
+fn default_sequence_offset() -> f64 {
+    0.0
+}
+
 #[derive(Debug, Deserialize)]
 pub struct TopicConfig {
     pub imu_topic: String,
     #[serde(default = "default_imu_rate")]
     pub imu_rate: f64,
     pub measure_rate: f64,
-    pub sequence_duration: f64,
-    pub sequence_offset: Option<f64>,
+    pub sequence_duration: Option<f64>,
+    #[serde(default = "default_sequence_offset")]
+    pub sequence_offset: f64,
 }
 
 #[derive(Debug, Deserialize)]

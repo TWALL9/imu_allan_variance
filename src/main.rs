@@ -1,9 +1,10 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use log::{error, info};
 
+mod avar_calc;
 mod config;
 mod messages;
 
