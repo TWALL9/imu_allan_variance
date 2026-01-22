@@ -1,3 +1,8 @@
+use std::{collections::HashMap, fs, path::PathBuf};
+
+use anyhow::Result;
+use mcap;
+use memmap2::Mmap;
 use serde::Deserialize;
 
 #[derive(Debug, Default, Clone, Copy, Deserialize)]
@@ -38,4 +43,23 @@ pub struct Imu {
     pub angular_velocity_covariance: Covariance,
     pub linear_acceleration: Vector3,
     pub linear_acceleration_covariance: Covariance,
+}
+
+pub fn create_imu_messages(path: &PathBuf) -> Result<HashMap<String, Vec<Imu>>> {
+    let fd = fs::File::open(path)?;
+    let mapped = unsafe { Mmap::map(&fd) }?;
+
+    let mut messages = HashMap::new();
+
+    for message in mcap::MessageStream::new(&mapped)? {
+        let message = message?;
+        let topic = message.channel.topic.clone();
+
+        let imu: Imu = cdr::deserialize(&message.data)?;
+
+        let topic_messages = messages.entry(topic).or_insert(vec![]);
+        topic_messages.push(imu);
+    }
+
+    Ok(messages)
 }
