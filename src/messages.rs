@@ -1,4 +1,9 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs,
+    path::PathBuf,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::Result;
 use mcap;
@@ -24,6 +29,12 @@ pub struct Quaternion {
 pub struct Timestamp {
     pub sec: i32,
     pub nanosec: u32,
+}
+
+impl Timestamp {
+    pub fn to_system_time(&self) -> SystemTime {
+        UNIX_EPOCH + Duration::new(self.sec as u64, self.nanosec)
+    }
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -62,4 +73,17 @@ pub fn create_imu_messages(path: &PathBuf) -> Result<HashMap<String, Vec<Imu>>> 
     }
 
     Ok(messages)
+}
+
+impl PartialEq for Imu {
+    fn eq(&self, other: &Self) -> bool {
+        self.header.ts.to_system_time() == other.header.ts.to_system_time()
+    }
+}
+
+impl PartialOrd for Imu {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let other_time = other.header.ts.to_system_time();
+        self.header.ts.to_system_time().partial_cmp(&other_time)
+    }
 }
