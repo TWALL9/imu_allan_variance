@@ -6,7 +6,6 @@ use std::{
 };
 
 use anyhow::Result;
-use mcap;
 use memmap2::Mmap;
 use serde::Deserialize;
 

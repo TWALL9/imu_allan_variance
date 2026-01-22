@@ -72,7 +72,7 @@ impl VarianceCalculator {
         self.calc_variance(range)
     }
 
-    fn calc_variance(&mut self, messages: &[messages::Imu]) -> Result<()> {
+    fn calc_variance(&mut self, _messages: &[messages::Imu]) -> Result<()> {
         Ok(())
     }
 }
