@@ -1,0 +1,5 @@
+- imu_topic: "/imu_broadcaster/imu"
+  imu_rate: 100
+  measure_rate: 100 # Rate to which imu data is subsampled
+  sequence_duration: 3600 # duration of the sequence (in seconds)
+  sequence_offset: 0 # sequence start within the recorded data (in seconds)
