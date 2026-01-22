@@ -32,7 +32,7 @@ pub struct Timestamp {
 }
 
 impl Timestamp {
-    pub fn to_system_time(&self) -> SystemTime {
+    pub fn to_system_time(self) -> SystemTime {
         UNIX_EPOCH + Duration::new(self.sec as u64, self.nanosec)
     }
 }
@@ -89,8 +89,7 @@ impl Eq for Imu {}
 
 impl PartialOrd for Imu {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let other_time = other.header.ts.to_system_time();
-        self.header.ts.to_system_time().partial_cmp(&other_time)
+        Some(self.cmp(other))
     }
 }
 

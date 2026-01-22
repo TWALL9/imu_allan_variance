@@ -1,4 +1,4 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime};
 
 use anyhow::Result;
 
@@ -42,7 +42,7 @@ impl VarianceCalculator {
         &messages[start..end]
     }
 
-    pub fn run(&mut self, messages: &Vec<messages::Imu>) -> Result<()> {
+    pub fn run(&mut self, messages: &[messages::Imu]) -> Result<()> {
         if messages.is_empty() {
             return Err(anyhow::anyhow!("Empty IMU messages!"));
         }
@@ -72,7 +72,7 @@ impl VarianceCalculator {
         self.calc_variance(range)
     }
 
-    fn calc_variance<'a>(&mut self, messages: &'a [messages::Imu]) -> Result<()> {
+    fn calc_variance(&mut self, messages: &[messages::Imu]) -> Result<()> {
         Ok(())
     }
 }
