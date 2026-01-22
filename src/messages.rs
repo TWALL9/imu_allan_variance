@@ -72,6 +72,10 @@ pub fn create_imu_messages(path: &PathBuf) -> Result<HashMap<String, Vec<Imu>>> 
         topic_messages.push(imu);
     }
 
+    for (_, imu_msgs) in messages.iter_mut() {
+        imu_msgs.sort();
+    }
+
     Ok(messages)
 }
 
@@ -81,9 +85,18 @@ impl PartialEq for Imu {
     }
 }
 
+impl Eq for Imu {}
+
 impl PartialOrd for Imu {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         let other_time = other.header.ts.to_system_time();
         self.header.ts.to_system_time().partial_cmp(&other_time)
+    }
+}
+
+impl Ord for Imu {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let other_time = other.header.ts.to_system_time();
+        self.header.ts.to_system_time().cmp(&other_time)
     }
 }
