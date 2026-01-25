@@ -18,11 +18,11 @@ pub struct Vector3 {
 }
 
 #[derive(Debug, Default, Clone, Copy, Deserialize)]
-pub struct Quaternion {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    pub w: f64,
+struct Quaternion {
+    pub _x: f64,
+    pub _y: f64,
+    pub _z: f64,
+    pub _w: f64,
 }
 
 #[derive(Debug, Default, Clone, Copy, Deserialize)]
@@ -38,27 +38,44 @@ impl Timestamp {
 }
 
 #[derive(Debug, Default, Deserialize)]
-pub struct Header {
+struct Header {
     pub ts: Timestamp,
-    pub frame_id: String,
+    pub _frame_id: String,
 }
 
-pub type Covariance = [f64; 9];
+type Covariance = [f64; 9];
 
 #[derive(Debug, Default, Deserialize)]
-pub struct Imu {
+struct ImuInternal {
     pub header: Header,
-    pub orientation: Quaternion,
-    pub orientation_covariance: Covariance,
+    pub _orientation: Quaternion,
+    pub _orientation_covariance: Covariance,
     pub angular_velocity: Vector3,
-    pub angular_velocity_covariance: Covariance,
+    pub _angular_velocity_covariance: Covariance,
     pub linear_acceleration: Vector3,
-    pub linear_acceleration_covariance: Covariance,
+    pub _linear_acceleration_covariance: Covariance,
+}
+
+impl Into<Imu> for ImuInternal {
+    fn into(self) -> Imu {
+        Imu {
+            ts: self.header.ts.to_system_time(),
+            angular_velocity: self.angular_velocity,
+            linear_acceleration: self.linear_acceleration,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Imu {
+    pub ts: SystemTime,
+    pub angular_velocity: Vector3,
+    pub linear_acceleration: Vector3,
 }
 
 impl PartialEq for Imu {
     fn eq(&self, other: &Self) -> bool {
-        self.header.ts.to_system_time() == other.header.ts.to_system_time()
+        self.ts == other.ts
     }
 }
 
@@ -72,8 +89,7 @@ impl PartialOrd for Imu {
 
 impl Ord for Imu {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let other_time = other.header.ts.to_system_time();
-        self.header.ts.to_system_time().cmp(&other_time)
+        self.ts.cmp(&other.ts)
     }
 }
 
@@ -87,14 +103,14 @@ pub fn create_imu_messages(path: &PathBuf) -> Result<HashMap<String, Vec<Imu>>> 
         let message = message?;
         let topic = message.channel.topic.clone();
 
-        let imu: Imu = cdr::deserialize(&message.data)?;
+        let imu: ImuInternal = cdr::deserialize(&message.data)?;
 
         if !messages.contains_key(&topic) {
             info!("Found new topic: {}", topic);
         }
 
         let topic_messages = messages.entry(topic).or_insert(vec![]);
-        topic_messages.push(imu);
+        topic_messages.push(imu.into());
     }
 
     for (_, imu_msgs) in messages.iter_mut() {

@@ -14,7 +14,7 @@ struct Args {
     #[arg(long, default_value = "./config.yaml")]
     config_path: PathBuf,
     #[arg(long, default_value = "./output")]
-    output_path: PathBuf,
+    output_path: String,
 }
 
 fn main() -> Result<()> {
@@ -34,6 +34,16 @@ fn main() -> Result<()> {
                 "Starting Allan variance computation for {}",
                 topic_config.imu_topic
             );
+
+            let variance_calc = avar_calc::VarianceCalculator::new(
+                topic_config.measure_rate,
+                topic_config.sequence_duration,
+                topic_config.sequence_offset,
+            );
+
+            variance_calc.run(&messages[&topic_config.imu_topic])?;
+
+            let _out_path = stringify!(args.output_path + "/" + &topic_config.imu_topic + ".csv");
         } else {
             error!(
                 "Topic {} not in available topics, skipping!",
