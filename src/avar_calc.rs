@@ -1,8 +1,6 @@
 use std::{
     collections::BTreeMap,
     f64::consts::FRAC_PI_2 as PI_2,
-    iter::Sum,
-    ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Sub},
     time::{Duration, SystemTime},
 };
 
@@ -13,125 +11,7 @@ use rayon::prelude::*;
 
 use super::messages;
 
-pub type Vf64 = Vector6<f64>;
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Vec6([f64; 6]);
-
-impl Add for Vec6 {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        Self([
-            self.0[0] + rhs.0[0],
-            self.0[1] + rhs.0[1],
-            self.0[2] + rhs.0[2],
-            self.0[3] + rhs.0[3],
-            self.0[4] + rhs.0[4],
-            self.0[5] + rhs.0[5],
-        ])
-    }
-}
-
-impl AddAssign for Vec6 {
-    fn add_assign(&mut self, rhs: Self) {
-        self.0[0] += rhs.0[0];
-        self.0[1] += rhs.0[1];
-        self.0[2] += rhs.0[2];
-        self.0[3] += rhs.0[3];
-        self.0[4] += rhs.0[4];
-        self.0[5] += rhs.0[5];
-    }
-}
-
-impl Sub for Vec6 {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self([
-            self.0[0] - rhs.0[0],
-            self.0[1] - rhs.0[1],
-            self.0[2] - rhs.0[2],
-            self.0[3] - rhs.0[3],
-            self.0[4] - rhs.0[4],
-            self.0[5] - rhs.0[5],
-        ])
-    }
-}
-
-impl Mul<f64> for Vec6 {
-    type Output = Self;
-    fn mul(self, rhs: f64) -> Self::Output {
-        Self([
-            self.0[0] * rhs,
-            self.0[1] * rhs,
-            self.0[2] * rhs,
-            self.0[3] * rhs,
-            self.0[4] * rhs,
-            self.0[5] * rhs,
-        ])
-    }
-}
-
-impl Div<f64> for Vec6 {
-    type Output = Self;
-    fn div(self, rhs: f64) -> Self::Output {
-        Self([
-            self.0[0] / rhs,
-            self.0[1] / rhs,
-            self.0[2] / rhs,
-            self.0[3] / rhs,
-            self.0[4] / rhs,
-            self.0[5] / rhs,
-        ])
-    }
-}
-
-impl Index<usize> for Vec6 {
-    type Output = f64;
-    fn index(&self, index: usize) -> &Self::Output {
-        self.0.index(index)
-    }
-}
-
-impl IndexMut<usize> for Vec6 {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        self.0.index_mut(index)
-    }
-}
-
-impl<'a> IntoIterator for &'a Vec6 {
-    type Item = &'a f64;
-    type IntoIter = std::slice::Iter<'a, f64>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
-}
-
-impl Sum<Vec6> for Vec6 {
-    fn sum<I: Iterator<Item = Vec6>>(iter: I) -> Self {
-        iter.fold(Self::default(), |a, b| a + b)
-    }
-}
-
-impl Vec6 {
-    pub fn new(x: f64, y: f64, z: f64, a: f64, b: f64, c: f64) -> Self {
-        Vec6([x, y, z, a, b, c])
-    }
-
-    pub fn powi(self, pow: i32) -> Self {
-        Vec6([
-            self.0[0].powi(pow),
-            self.0[1].powi(pow),
-            self.0[2].powi(pow),
-            self.0[3].powi(pow),
-            self.0[4].powi(pow),
-            self.0[5].powi(pow),
-        ])
-    }
-
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, f64> {
-        self.0.iter_mut()
-    }
-}
+pub type Vec6 = Vector6<f64>;
 
 fn rad_to_deg(rad: f64) -> f64 {
     rad * 180.0 / PI_2
@@ -153,7 +33,7 @@ pub fn avar_calc(
     messages: &[messages::Imu],
     sampling_period: f64,
     cluster_size: usize,
-) -> Result<(f64, Vf64)> {
+) -> Result<(f64, Vec6)> {
     if cluster_size == 0 {
         return Err(anyhow::anyhow!("Cluster size is too small to use"));
     }
@@ -171,10 +51,10 @@ pub fn avar_calc(
     for i in 0..n_clusters {
         let start = i * cluster_size;
         let end = start + cluster_size;
-        let sum: Vf64 = messages[start..end]
+        let sum: Vec6 = messages[start..end]
             .iter()
             .map(|m| {
-                Vf64::new(
+                Vec6::new(
                     m.linear_acceleration.x,
                     m.linear_acceleration.y,
                     m.linear_acceleration.z,
@@ -187,18 +67,18 @@ pub fn avar_calc(
         averages.push(sum / cluster_size as f64);
     }
 
-    let mut sum_squares = Vf64::default();
-    let mut prev: Option<&Vf64> = None;
+    let mut sum_squares = Vec6::default();
+    let mut prev: Option<&Vec6> = None;
     for avg in averages.iter() {
         if let Some(p) = prev {
-            let diff: Vf64 = avg - p;
+            let diff: Vec6 = avg - p;
             let diff_squared = diff.map(|x| x * x);
             sum_squares += diff_squared;
         }
         prev = Some(avg);
     }
 
-    let mut avar = Vf64::default();
+    let mut avar = Vec6::default();
 
     for i in 0..5 {
         avar[i] = 0.5 * sum_squares[i] / (averages.len() as f64 - 1.0);
