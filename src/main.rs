@@ -8,7 +8,7 @@ use clap::Parser;
 use log::{error, info};
 use rayon::prelude::*;
 
-mod avar_calc;
+mod calc;
 mod config;
 mod messages;
 
@@ -34,7 +34,7 @@ fn message_range<'a>(
         None => messages.last().unwrap().ts,
     };
 
-    avar_calc::range(messages, start, end)
+    calc::range(messages, start, end)
 }
 
 fn main() -> Result<()> {
@@ -66,14 +66,14 @@ fn main() -> Result<()> {
                 topic_config.sequence_offset,
             );
 
-            let mut variances: Vec<(f64, avar_calc::Vec6)> = (1..10000)
+            let mut variances: Vec<(f64, calc::Vec6)> = (1..10000)
                 .into_par_iter()
                 .map(
-                    |p| match avar_calc::avar_calc(imu_selection, topic_config.measure_rate, p) {
+                    |p| match calc::avar_calc(imu_selection, topic_config.measure_rate, p) {
                         Ok(avar) => avar,
                         Err(e) => {
                             error!("{:?}", e);
-                            (0.0, avar_calc::Vec6::default())
+                            (0.0, calc::Vec6::default())
                         }
                     },
                 )
@@ -81,7 +81,7 @@ fn main() -> Result<()> {
 
             variances.retain(|(tau, _)| *tau > 0.0);
 
-            // let variance_calc = avar_calc::VarianceCalculator::new(
+            // let variance_calc = calc::VarianceCalculator::new(
             //     topic_config.measure_rate,
             //     topic_config.sequence_duration,
             //     topic_config.sequence_offset,
