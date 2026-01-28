@@ -66,14 +66,14 @@ fn main() -> Result<()> {
                 topic_config.sequence_offset,
             );
 
-            let mut variances: Vec<(f64, avar_calc::Vec6)> = (1..10000)
+            let mut variances: Vec<(f64, avar_calc::Vf64)> = (1..10000)
                 .into_par_iter()
                 .map(
                     |p| match avar_calc::avar_calc(imu_selection, topic_config.measure_rate, p) {
                         Ok(avar) => avar,
                         Err(e) => {
                             error!("{:?}", e);
-                            (0.0, avar_calc::Vec6::default())
+                            (0.0, avar_calc::Vf64::default())
                         }
                     },
                 )

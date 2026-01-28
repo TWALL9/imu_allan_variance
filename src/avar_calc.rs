@@ -8,9 +8,12 @@ use std::{
 
 use anyhow::Result;
 use log::info;
+use nalgebra::Vector6;
 use rayon::prelude::*;
 
 use super::messages;
+
+pub type Vf64 = Vector6<f64>;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Vec6([f64; 6]);
@@ -150,7 +153,7 @@ pub fn avar_calc(
     messages: &[messages::Imu],
     sampling_period: f64,
     cluster_size: usize,
-) -> Result<(f64, Vec6)> {
+) -> Result<(f64, Vf64)> {
     if cluster_size == 0 {
         return Err(anyhow::anyhow!("Cluster size is too small to use"));
     }
@@ -168,33 +171,34 @@ pub fn avar_calc(
     for i in 0..n_clusters {
         let start = i * cluster_size;
         let end = start + cluster_size;
-        let sum: Vec6 = messages[start..end]
+        let sum: Vf64 = messages[start..end]
             .iter()
             .map(|m| {
-                Vec6([
+                Vf64::new(
                     m.linear_acceleration.x,
                     m.linear_acceleration.y,
                     m.linear_acceleration.z,
                     rad_to_deg(m.angular_velocity.x),
                     rad_to_deg(m.angular_velocity.y),
                     rad_to_deg(m.angular_velocity.z),
-                ])
+                )
             })
             .sum();
         averages.push(sum / cluster_size as f64);
     }
 
-    let mut sum_squares = Vec6::default();
-    let mut prev: Option<&Vec6> = None;
+    let mut sum_squares = Vf64::default();
+    let mut prev: Option<&Vf64> = None;
     for avg in averages.iter() {
         if let Some(p) = prev {
-            let diff = *avg - *p;
-            sum_squares += diff.powi(2);
+            let diff: Vf64 = avg - p;
+            let diff_squared = diff.map(|x| x * x);
+            sum_squares += diff_squared;
         }
         prev = Some(avg);
     }
 
-    let mut avar = Vec6::default();
+    let mut avar = Vf64::default();
 
     for i in 0..5 {
         avar[i] = 0.5 * sum_squares[i] / (averages.len() as f64 - 1.0);
