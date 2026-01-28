@@ -1,8 +1,12 @@
-use std::{path::PathBuf, time::SystemTime};
+use std::{
+    path::PathBuf,
+    time::{Duration, SystemTime},
+};
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use log::{error, info};
+use rayon::prelude::*;
 
 mod avar_calc;
 mod config;
@@ -15,6 +19,22 @@ struct Args {
     config_path: PathBuf,
     #[arg(long, default_value = "./output")]
     output_path: String,
+}
+
+fn message_range<'a>(
+    messages: &'a [messages::Imu],
+    duration: Option<f64>,
+    offset: f64,
+) -> &'a [messages::Imu] {
+    let first = messages.first().unwrap().ts;
+    let start = first + Duration::from_millis(offset as u64);
+
+    let end = match duration {
+        Some(d) => start + Duration::from_millis(d as u64),
+        None => messages.last().unwrap().ts,
+    };
+
+    avar_calc::range(messages, start, end)
 }
 
 fn main() -> Result<()> {
@@ -35,13 +55,39 @@ fn main() -> Result<()> {
                 topic_config.imu_topic
             );
 
-            let variance_calc = avar_calc::VarianceCalculator::new(
-                topic_config.measure_rate,
+            let imu_data = &messages[&topic_config.imu_topic];
+            if imu_data.is_empty() {
+                error!("No messages for topic {}", topic_config.imu_topic);
+            }
+
+            let imu_selection = message_range(
+                &imu_data,
                 topic_config.sequence_duration,
                 topic_config.sequence_offset,
             );
 
-            variance_calc.run(&messages[&topic_config.imu_topic])?;
+            let mut variances: Vec<(f64, avar_calc::Vec6)> = (1..10000)
+                .into_par_iter()
+                .map(
+                    |p| match avar_calc::avar_calc(imu_selection, topic_config.measure_rate, p) {
+                        Ok(avar) => avar,
+                        Err(e) => {
+                            error!("{:?}", e);
+                            (0.0, avar_calc::Vec6::default())
+                        }
+                    },
+                )
+                .collect();
+
+            variances.retain(|(tau, _)| *tau > 0.0);
+
+            // let variance_calc = avar_calc::VarianceCalculator::new(
+            //     topic_config.measure_rate,
+            //     topic_config.sequence_duration,
+            //     topic_config.sequence_offset,
+            // );
+
+            // variance_calc.run(&messages[&topic_config.imu_topic], 1, 10000)?;
 
             let _out_path = stringify!(args.output_path + "/" + &topic_config.imu_topic + ".csv");
         } else {
