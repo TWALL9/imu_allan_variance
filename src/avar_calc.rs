@@ -1,6 +1,5 @@
 use std::{
     collections::BTreeMap,
-    iter,
     time::{Duration, SystemTime},
 };
 
@@ -45,7 +44,12 @@ impl VarianceCalculator {
         }
     }
 
-    pub fn run(&self, messages: &[messages::Imu]) -> Result<Vec<(f64, Vec6)>> {
+    pub fn run(
+        &self,
+        messages: &[messages::Imu],
+        min_period: i32,
+        max_period: i32,
+    ) -> Result<Vec<(f64, Vec6)>> {
         if messages.is_empty() {
             return Err(anyhow::anyhow!("Empty IMU messages!"));
         }
@@ -66,16 +70,32 @@ impl VarianceCalculator {
 
         let range = range(messages, offset_timestamp, end_timestamp);
 
-        let averages = self.calc_averages(range);
+        let averages = self.calc_averages(range, min_period, max_period);
         let deviations = self.calc_deviations(&averages);
 
         Ok(deviations)
     }
 
-    fn calc_averages(&self, messages: &[messages::Imu]) -> BTreeMap<i32, Vec<Vec6>> {
-        let averages: Vec<(i32, Vec<Vec6>)> = (1..10000)
+    fn calc_averages(
+        &self,
+        messages: &[messages::Imu],
+        min_period: i32,
+        max_period: i32,
+    ) -> BTreeMap<i32, Vec<Vec6>> {
+        let averages: Vec<(i32, Vec<Vec6>)> = (min_period..max_period)
             .into_par_iter()
-            .map(|period| self.average_calc(messages, period))
+            .map(|period| {
+                let av = self.average_calc(messages, period);
+
+                info!(
+                    "Computed {:?} averages for period {} ({}) left",
+                    av.1.len(),
+                    period as f64 * 0.1,
+                    (max_period - period)
+                );
+
+                av
+            })
             .collect();
 
         let mut averages_map: BTreeMap<i32, Vec<Vec6>> = BTreeMap::new();
@@ -111,13 +131,6 @@ impl VarianceCalculator {
             averages.push(current_average);
         }
 
-        info!(
-            "Computed {:?} averages for period {} ({}) left",
-            averages.len(),
-            period_time,
-            (10000 - period)
-        );
-
         (period, averages)
     }
 
@@ -144,7 +157,7 @@ impl VarianceCalculator {
             if let Some(prev) = previous {
                 for j in 0..5 {
                     allan_variance[j] += (curr[j] - prev[j]).powi(2);
-                    allan_variance[j] /= 2.0 * (num_averages - 1) as f64;
+                    allan_variance[j] *= 0.5 / (num_averages - 1) as f64;
                 }
             }
 
