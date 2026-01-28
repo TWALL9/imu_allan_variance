@@ -1,4 +1,6 @@
 use std::{
+    fs::File,
+    io::{BufWriter, Write},
     path::PathBuf,
     time::{Duration, SystemTime},
 };
@@ -68,15 +70,15 @@ fn main() -> Result<()> {
 
             let mut variances: Vec<(f64, calc::Vec6)> = (1..10000)
                 .into_par_iter()
-                .map(
-                    |p| match calc::avar_calc(imu_selection, topic_config.measure_rate, p) {
+                .map(|p| {
+                    match calc::avar_non_overlapping(imu_selection, topic_config.measure_rate, p) {
                         Ok(avar) => avar,
                         Err(e) => {
                             error!("{:?}", e);
                             (0.0, calc::Vec6::default())
                         }
-                    },
-                )
+                    }
+                })
                 .collect();
 
             variances.retain(|(tau, _)| *tau > 0.0);
@@ -89,7 +91,17 @@ fn main() -> Result<()> {
 
             // variance_calc.run(&messages[&topic_config.imu_topic], 1, 10000)?;
 
-            let _out_path = stringify!(args.output_path + "/" + &topic_config.imu_topic + ".csv");
+            let out_path = stringify!(args.output_path + "/" + &topic_config.imu_topic + ".csv");
+            let file = File::create(out_path)?;
+            let mut stream = BufWriter::new(file);
+            for (tau, avar) in variances {
+                writeln!(
+                    stream,
+                    "{:.19} {:.7} {:.7} {:.7} {:.7} {:.7} {:.7}",
+                    tau, avar[0], avar[1], avar[2], avar[3], avar[4], avar[5],
+                )?;
+            }
+            stream.flush()?;
         } else {
             error!(
                 "Topic {} not in available topics, skipping!",

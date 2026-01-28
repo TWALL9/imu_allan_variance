@@ -29,7 +29,7 @@ pub fn range<'a>(
 }
 
 /// avar calculation based on common sense
-pub fn avar_calc(
+pub fn avar_non_overlapping(
     messages: &[messages::Imu],
     sampling_period: f64,
     cluster_size: usize,
