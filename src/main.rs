@@ -23,11 +23,11 @@ struct Args {
     output_path: String,
 }
 
-fn message_range<'a>(
-    messages: &'a [messages::Imu],
+fn message_range(
+    messages: &[messages::Imu],
     duration: Option<f64>,
     offset: f64,
-) -> &'a [messages::Imu] {
+) -> &[messages::Imu] {
     let first = messages.first().unwrap().ts;
     let start = first + Duration::from_millis(offset as u64);
 
@@ -63,7 +63,7 @@ fn main() -> Result<()> {
             }
 
             let imu_selection = message_range(
-                &imu_data,
+                imu_data,
                 topic_config.sequence_duration,
                 topic_config.sequence_offset,
             );

@@ -17,11 +17,7 @@ fn rad_to_deg(rad: f64) -> f64 {
     rad * 180.0 / PI_2
 }
 
-pub fn range<'a>(
-    messages: &'a [messages::Imu],
-    start: SystemTime,
-    end: SystemTime,
-) -> &'a [messages::Imu] {
+pub fn range(messages: &[messages::Imu], start: SystemTime, end: SystemTime) -> &[messages::Imu] {
     let start = messages.partition_point(|x| x.ts <= start);
     let end = messages.partition_point(|x| x.ts <= end);
 
@@ -227,7 +223,7 @@ impl VarianceCalculator {
             previous = Some(curr);
         }
 
-        let mut allan_deviation = allan_variance.clone();
+        let mut allan_deviation = allan_variance;
         allan_deviation.iter_mut().for_each(|x| *x = x.sqrt());
 
         (period_time, allan_deviation)

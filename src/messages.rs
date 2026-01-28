@@ -56,12 +56,12 @@ struct ImuInternal {
     pub _linear_acceleration_covariance: Covariance,
 }
 
-impl Into<Imu> for ImuInternal {
-    fn into(self) -> Imu {
+impl From<ImuInternal> for Imu {
+    fn from(val: ImuInternal) -> Self {
         Imu {
-            ts: self.header.ts.to_system_time(),
-            angular_velocity: self.angular_velocity,
-            linear_acceleration: self.linear_acceleration,
+            ts: val.header.ts.to_system_time(),
+            angular_velocity: val.angular_velocity,
+            linear_acceleration: val.linear_acceleration,
         }
     }
 }
