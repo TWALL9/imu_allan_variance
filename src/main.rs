@@ -36,7 +36,10 @@ fn message_range(
         None => messages.last().unwrap().ts,
     };
 
-    calc::range(messages, start, end)
+    let start_idx = messages.partition_point(|x| x.ts <= start);
+    let end_idx = messages.partition_point(|x| x.ts <= end);
+
+    &messages[start_idx..end_idx]
 }
 
 fn ros_topic_to_path(topic: &str) -> String {
