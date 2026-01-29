@@ -25,11 +25,7 @@ pub fn range(messages: &[messages::Imu], start: SystemTime, end: SystemTime) -> 
 }
 
 /// avar calculation based on common sense
-pub fn avar_non_overlapping(
-    messages: &[messages::Imu],
-    sampling_period: f64,
-    cluster_size: usize,
-) -> Result<(f64, Vec6)> {
+pub fn avar_non_overlapping(messages: &[messages::Imu], cluster_size: usize) -> Result<Vec6> {
     if cluster_size == 0 {
         return Err(anyhow::anyhow!("Cluster size is too small to use"));
     }
@@ -80,9 +76,7 @@ pub fn avar_non_overlapping(
         avar[i] = 0.5 * sum_squares[i] / (averages.len() as f64 - 1.0);
     }
 
-    let tau = sampling_period * cluster_size as f64;
-
-    Ok((tau, avar))
+    Ok(avar)
 }
 
 /// avar calc that is a reimplementation of the ROS version

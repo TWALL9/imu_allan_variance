@@ -71,17 +71,20 @@ fn main() -> Result<()> {
             let mut variances: Vec<(f64, calc::Vec6)> = (1..10000)
                 .into_par_iter()
                 .map(|p| {
-                    match calc::avar_non_overlapping(imu_selection, topic_config.measure_rate, p) {
-                        Ok(avar) => avar,
+                    // Sampling periods from 0.1 to 1000s
+                    let tau = p as f64 * 0.1;
+                    let cluster_size = (tau * topic_config.measure_rate) as usize;
+                    match calc::avar_non_overlapping(imu_selection, cluster_size) {
+                        Ok(avar) => (tau, avar),
                         Err(e) => {
                             error!("{:?}", e);
-                            (0.0, calc::Vec6::default())
+                            (std::f64::NAN, calc::Vec6::default())
                         }
                     }
                 })
                 .collect();
 
-            variances.retain(|(tau, _)| *tau > 0.0);
+            variances.retain(|(tau, _)| *tau != std::f64::NAN);
 
             // let variance_calc = calc::VarianceCalculator::new(
             //     topic_config.measure_rate,
