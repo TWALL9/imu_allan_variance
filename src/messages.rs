@@ -1,3 +1,8 @@
+//! Read out contents of an mcap file and extract IMU information from it
+//! The mcap file (ros2 bag) contains serialized sensor_msgs/msg/Imu messages, which
+//! must be deserialized in their entirety. We're only interested in some portions of the
+//! message, which are extracted into a new struct
+
 use std::{
     collections::HashMap,
     fs,
@@ -10,6 +15,7 @@ use log::info;
 use memmap2::Mmap;
 use serde::Deserialize;
 
+/// Representation of ROS2 geometry_msgs/msg/Vector3
 #[derive(Debug, Default, Clone, Copy, Deserialize)]
 pub struct Vector3 {
     pub x: f64,
@@ -17,6 +23,7 @@ pub struct Vector3 {
     pub z: f64,
 }
 
+/// Representation of ROS2 geometry_msgs/msg/Quaternion
 #[derive(Debug, Default, Clone, Copy, Deserialize)]
 struct Quaternion {
     pub _x: f64,
@@ -25,6 +32,7 @@ struct Quaternion {
     pub _w: f64,
 }
 
+/// Representation of ROS2 builtin_interfaces/Time
 #[derive(Debug, Default, Clone, Copy, Deserialize)]
 pub struct Timestamp {
     pub sec: i32,
@@ -37,14 +45,18 @@ impl Timestamp {
     }
 }
 
+/// Representation of ROS2 std_msgs/msg/Header
 #[derive(Debug, Default, Deserialize)]
 struct Header {
     pub ts: Timestamp,
     pub _frame_id: String,
 }
 
+/// Representation of covariance fields in sensor_msgs/msg/Imu
 type Covariance = [f64; 9];
 
+/// Representation of ROS2 sensor_msgs/msg/Imu
+/// Used internally for deserialization and conversion to `messages::Imu`
 #[derive(Debug, Default, Deserialize)]
 struct ImuInternal {
     pub header: Header,
@@ -66,6 +78,7 @@ impl From<ImuInternal> for Imu {
     }
 }
 
+/// IMU data used for calculating Allan variance
 #[derive(Debug)]
 pub struct Imu {
     pub ts: SystemTime,
@@ -93,6 +106,7 @@ impl Ord for Imu {
     }
 }
 
+/// Read out the data from an mcap file, parse IMU data, and store it in a map indexable by topic
 pub fn create_imu_messages(path: &PathBuf) -> Result<HashMap<String, Vec<Imu>>> {
     let fd = fs::File::open(path)?;
     let mapped = unsafe { Mmap::map(&fd) }?;

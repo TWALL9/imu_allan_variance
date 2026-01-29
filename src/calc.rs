@@ -1,3 +1,8 @@
+//! Calculation system for IMU measurements
+//! In an attempt to keep it compatible with Kalibr, some quirks were retained from
+//! the original ROS `allan_variance_ros2` package
+//! 1. Angular velocity is recorded as deg/s rather than rad/s
+
 use std::f64::consts::PI;
 
 use anyhow::Result;
@@ -5,12 +10,20 @@ use nalgebra::Vector6;
 
 use super::messages;
 
+/// `Vec6` is merely an efficient wrapper for IMU measurements
+/// Index 0-2: linear acceleration in m/s^2
+/// Index 3-5: angular velocity in deg/s
 pub type Vec6 = Vector6<f64>;
 
+/// Converts radians to degrees
 fn rad_to_deg(rad: f64) -> f64 {
     rad * 180.0 / PI
 }
 
+/// Generates a series of averages used to compute the Allan variance of a set
+/// The averages are based on `cluster_size` groupings in `messages`
+/// The averages are based on distinct groupings of messages, there is no overlap
+/// Typically, `cluster_size` is computed as tau / sampling time
 pub fn averages_non_overlapping(
     messages: &[messages::Imu],
     cluster_size: usize,
@@ -51,6 +64,7 @@ pub fn averages_non_overlapping(
     Ok(averages)
 }
 
+/// Compute the Allan variance of each element of a Vec6
 pub fn allan_variance(averages: &[Vec6]) -> Vec6 {
     let mut sum_squares = Vec6::default();
     let mut prev: Option<&Vec6> = None;
@@ -64,7 +78,6 @@ pub fn allan_variance(averages: &[Vec6]) -> Vec6 {
     }
 
     let mut avar = Vec6::default();
-
     for i in 0..6 {
         avar[i] = 0.5 * sum_squares[i] / (averages.len() as f64 - 1.0);
     }
