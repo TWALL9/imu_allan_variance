@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use log::{error, info};
+use log::{LevelFilter, error, info};
 use rayon::prelude::*;
 
 mod calc;
@@ -29,33 +29,52 @@ fn message_range(
     offset: f64,
 ) -> &[messages::Imu] {
     let first = messages.first().unwrap().ts;
-    let start = first + Duration::from_millis(offset as u64);
+    let start = first + Duration::from_secs_f64(offset);
 
     let end = match duration {
-        Some(d) => start + Duration::from_millis(d as u64),
+        Some(d) => start + Duration::from_secs_f64(d),
         None => messages.last().unwrap().ts,
     };
 
     calc::range(messages, start, end)
 }
 
+fn ros_topic_to_path(topic: &String) -> String {
+    // Topics have a leading / to remove, and replace all namespacing with _
+    topic.replacen("/", "", 1).replace("/", "_")
+}
+
 fn main() -> Result<()> {
+    env_logger::Builder::new()
+        .target(env_logger::Target::Stdout)
+        .filter(None, LevelFilter::Info)
+        .init();
+
     let start = SystemTime::now();
 
+    info!("parsing");
     let args = Args::parse();
+
+    info!("Bag Path = {:?}", args.bag_path);
+    info!("Config File = {:?}", args.config_path);
+    info!("Output folder = {:?}", args.output_path);
 
     let config = config::load_config(&args.config_path).context("Could not load config")?;
 
     let messages = messages::create_imu_messages(&args.bag_path)?;
 
+    let mut num_messages = 0;
+    for (_, m) in messages.iter() {
+        num_messages += m.len();
+    }
+    info!("Finished buffering data: {} measurements", num_messages);
+
     let mut missing_topics = vec![];
 
     for topic_config in config {
         if messages.contains_key(&topic_config.imu_topic) {
-            info!(
-                "Starting Allan variance computation for {}",
-                topic_config.imu_topic
-            );
+            info!("Topic {:?} found in the bag!", topic_config.imu_topic);
+            info!("Configuration...{:?}", topic_config);
 
             let imu_data = &messages[&topic_config.imu_topic];
             if imu_data.is_empty() {
@@ -68,23 +87,42 @@ fn main() -> Result<()> {
                 topic_config.sequence_offset,
             );
 
-            let mut variances: Vec<(f64, calc::Vec6)> = (1..10000)
+            log::info!(
+                "Total measurements: {}, {} in target window",
+                imu_data.len(),
+                imu_selection.len()
+            );
+
+            let mut deviances: Vec<(f64, calc::Vec6)> = (1..10)
                 .into_par_iter()
                 .map(|p| {
                     // Sampling periods from 0.1 to 1000s
                     let tau = p as f64 * 0.1;
                     let cluster_size = (tau * topic_config.measure_rate) as usize;
-                    match calc::avar_non_overlapping(imu_selection, cluster_size) {
-                        Ok(avar) => (tau, avar),
+                    match calc::averages_non_overlapping(imu_selection, cluster_size) {
+                        Ok(averages) => {
+                            info!(
+                                "Computed {} averages for sampling period {:.3?}",
+                                averages.len(),
+                                tau
+                            );
+                            let avar = calc::allan_variance(&averages);
+                            // I do not know why, but the ROS Allan variance package saves deviances
+                            // instead of variances. It even calls them variances.
+                            let adev = avar.map(|x| x.sqrt());
+                            info!("Allan variance for tau {:.3?} = {:?}", tau, avar);
+                            info!("Allan deviance for tau {:3?} = {:?}", tau, adev);
+                            (tau, adev)
+                        }
                         Err(e) => {
-                            error!("{:?}", e);
+                            error!("Error calculating Allan variance for {:.3?}: {:?}", tau, e);
                             (std::f64::NAN, calc::Vec6::default())
                         }
                     }
                 })
                 .collect();
 
-            variances.retain(|(tau, _)| *tau != std::f64::NAN);
+            deviances.retain(|(tau, _)| *tau != std::f64::NAN);
 
             // let variance_calc = calc::VarianceCalculator::new(
             //     topic_config.measure_rate,
@@ -94,10 +132,17 @@ fn main() -> Result<()> {
 
             // variance_calc.run(&messages[&topic_config.imu_topic], 1, 10000)?;
 
-            let out_path = stringify!(args.output_path + "/" + &topic_config.imu_topic + ".csv");
+            let mut out_path = PathBuf::new();
+            out_path.push(&args.output_path);
+            if !out_path.exists() {
+                std::fs::create_dir_all(out_path.clone())?;
+            }
+            out_path.push(ros_topic_to_path(&topic_config.imu_topic));
+            out_path.set_extension("csv");
+            log::warn!("output path: {:?}", out_path);
             let file = File::create(out_path)?;
             let mut stream = BufWriter::new(file);
-            for (tau, avar) in variances {
+            for (tau, avar) in deviances {
                 writeln!(
                     stream,
                     "{:.19} {:.7} {:.7} {:.7} {:.7} {:.7} {:.7}",

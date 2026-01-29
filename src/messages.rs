@@ -97,25 +97,31 @@ pub fn create_imu_messages(path: &PathBuf) -> Result<HashMap<String, Vec<Imu>>> 
     let fd = fs::File::open(path)?;
     let mapped = unsafe { Mmap::map(&fd) }?;
 
-    let mut messages = HashMap::new();
+    let mut imu_messages = HashMap::new();
 
     for message in mcap::MessageStream::new(&mapped)? {
         let message = message?;
         let topic = message.channel.topic.clone();
+        let msg_type = match message.channel.schema.clone() {
+            Some(schema) => schema.name.clone(),
+            _ => "unknown".to_string(),
+        };
 
-        let imu: ImuInternal = cdr::deserialize(&message.data)?;
+        if msg_type == "sensor_msgs/msg/Imu" {
+            let imu = cdr::deserialize::<ImuInternal>(&message.data)?;
 
-        if !messages.contains_key(&topic) {
-            info!("Found new topic: {}", topic);
+            if !imu_messages.contains_key(&topic) {
+                info!("Found new topic: {}", topic);
+            }
+
+            let topic_messages = imu_messages.entry(topic).or_insert(vec![]);
+            topic_messages.push(imu.into());
         }
-
-        let topic_messages = messages.entry(topic).or_insert(vec![]);
-        topic_messages.push(imu.into());
     }
 
-    for (_, imu_msgs) in messages.iter_mut() {
+    for (_, imu_msgs) in imu_messages.iter_mut() {
         imu_msgs.sort();
     }
 
-    Ok(messages)
+    Ok(imu_messages)
 }

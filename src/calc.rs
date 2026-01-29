@@ -1,6 +1,6 @@
 use std::{
     collections::BTreeMap,
-    f64::consts::FRAC_PI_2 as PI_2,
+    f64::consts::PI,
     time::{Duration, SystemTime},
 };
 
@@ -14,7 +14,7 @@ use super::messages;
 pub type Vec6 = Vector6<f64>;
 
 fn rad_to_deg(rad: f64) -> f64 {
-    rad * 180.0 / PI_2
+    rad * 180.0 / PI
 }
 
 pub fn range(messages: &[messages::Imu], start: SystemTime, end: SystemTime) -> &[messages::Imu] {
@@ -24,8 +24,10 @@ pub fn range(messages: &[messages::Imu], start: SystemTime, end: SystemTime) -> 
     &messages[start..end]
 }
 
-/// avar calculation based on common sense
-pub fn avar_non_overlapping(messages: &[messages::Imu], cluster_size: usize) -> Result<Vec6> {
+pub fn averages_non_overlapping(
+    messages: &[messages::Imu],
+    cluster_size: usize,
+) -> Result<Vec<Vec6>> {
     if cluster_size == 0 {
         return Err(anyhow::anyhow!("Cluster size is too small to use"));
     }
@@ -59,6 +61,10 @@ pub fn avar_non_overlapping(messages: &[messages::Imu], cluster_size: usize) -> 
         averages.push(sum / cluster_size as f64);
     }
 
+    Ok(averages)
+}
+
+pub fn allan_variance(averages: &[Vec6]) -> Vec6 {
     let mut sum_squares = Vec6::default();
     let mut prev: Option<&Vec6> = None;
     for avg in averages.iter() {
@@ -72,11 +78,11 @@ pub fn avar_non_overlapping(messages: &[messages::Imu], cluster_size: usize) -> 
 
     let mut avar = Vec6::default();
 
-    for i in 0..5 {
+    for i in 0..6 {
         avar[i] = 0.5 * sum_squares[i] / (averages.len() as f64 - 1.0);
     }
 
-    Ok(avar)
+    avar
 }
 
 /// avar calc that is a reimplementation of the ROS version
