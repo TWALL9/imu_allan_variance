@@ -39,7 +39,7 @@ fn message_range(
     calc::range(messages, start, end)
 }
 
-fn ros_topic_to_path(topic: &String) -> String {
+fn ros_topic_to_path(topic: &str) -> String {
     // Topics have a leading / to remove, and replace all namespacing with _
     topic.replacen("/", "", 1).replace("/", "_")
 }
@@ -116,13 +116,13 @@ fn main() -> Result<()> {
                         }
                         Err(e) => {
                             error!("Error calculating Allan variance for {:.3?}: {:?}", tau, e);
-                            (std::f64::NAN, calc::Vec6::default())
+                            (f64::NAN, calc::Vec6::default())
                         }
                     }
                 })
                 .collect();
 
-            deviances.retain(|(tau, _)| *tau != std::f64::NAN);
+            deviances.retain(|(tau, _)| !tau.is_nan());
 
             // let variance_calc = calc::VarianceCalculator::new(
             //     topic_config.measure_rate,

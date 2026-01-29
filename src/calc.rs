@@ -210,9 +210,8 @@ impl VarianceCalculator {
         );
 
         let mut allan_variance = Vec6::default();
-        let mut previous: Option<Vec6> = None;
-        for i in 0..num_averages {
-            let curr = averages[i];
+        let mut previous: Option<&Vec6> = None;
+        for curr in averages {
             if let Some(prev) = previous {
                 for j in 0..5 {
                     allan_variance[j] += (curr[j] - prev[j]).powi(2);
