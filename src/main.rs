@@ -93,7 +93,7 @@ fn main() -> Result<()> {
                 imu_selection.len()
             );
 
-            let mut deviances: Vec<(f64, calc::Vec6)> = (1..10)
+            let mut deviances: Vec<(f64, calc::Vec6)> = (1..10000)
                 .into_par_iter()
                 .map(|p| {
                     // Sampling periods from 0.1 to 1000s
